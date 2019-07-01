@@ -28,4 +28,7 @@ public class DownloadParams {
   public OnTaskCompleted onTaskCompleted;
   public OnDownloadBegin onDownloadBegin;
   public OnDownloadProgress onDownloadProgress;
+
+  // <= 0 for no throttle; otherwise value in bytes per second.
+  public int throttleRate;
 }

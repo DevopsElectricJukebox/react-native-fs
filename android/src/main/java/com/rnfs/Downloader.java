@@ -103,13 +103,19 @@ public class Downloader extends AsyncTask<DownloadParams, int[], DownloadResult>
 
         mParam.onDownloadBegin.onDownloadBegin(statusCode, lengthOfFile, headersFlat);
 
-        input = new BufferedInputStream(connection.getInputStream(), 8 * 1024);
+        int blockSize = 8 * 1024;
+
+        input = new BufferedInputStream(connection.getInputStream(), blockSize);
         output = new FileOutputStream(param.dest);
 
-        byte data[] = new byte[8 * 1024];
+        byte data[] = new byte[blockSize];
         int total = 0;
         int count;
         double lastProgressValue = 0;
+        double throttleDuration = param.throttleRate > 0 ? (blockSize / (double) param.throttleRate) : 0;
+        long throttleMillis = (long) (throttleDuration * 1e3);
+        int throttleNanos = (int) (throttleDuration * 1e6) % 1000;
+        Log.d("Downloader", "THROTTLE MS: " + String.valueOf(throttleMillis) + " NS: " + String.valueOf(throttleNanos));
 
         while ((count = input.read(data)) != -1) {
           if (mAbort.get()) throw new Exception("Download has been aborted");
@@ -128,6 +134,10 @@ public class Downloader extends AsyncTask<DownloadParams, int[], DownloadResult>
             }
           }
           output.write(data, 0, count);
+
+          if (throttleMillis > 0) {
+            Thread.sleep(throttleMillis, throttleNanos);
+          }
         }
 
         output.flush();

@@ -611,6 +611,7 @@ public class RNFSManager extends ReactContextBaseJavaModule {
       int progressDivider = options.getInt("progressDivider");
       int readTimeout = options.getInt("readTimeout");
       int connectionTimeout = options.getInt("connectionTimeout");
+      int throttleRate = options.getInt("throttleRate");
 
       DownloadParams params = new DownloadParams();
 
@@ -620,6 +621,7 @@ public class RNFSManager extends ReactContextBaseJavaModule {
       params.progressDivider = progressDivider;
       params.readTimeout = readTimeout;
       params.connectionTimeout = connectionTimeout;
+      params.throttleRate = throttleRate;
 
       params.onTaskCompleted = new DownloadParams.OnTaskCompleted() {
         public void onTaskCompleted(DownloadResult res) {

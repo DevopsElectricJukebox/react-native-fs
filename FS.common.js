@@ -74,6 +74,7 @@ type DownloadFileOptions = {
   resumable?: () => void;    // only supported on iOS yet
   connectionTimeout?: number; // only supported on Android yet
   readTimeout?: number;       // supported on Android and iOS
+  throttleRate?: number;
 };
 
 type DownloadBeginCallbackResult = {
@@ -462,6 +463,7 @@ var RNFS = {
     if (options.progressDivider && typeof options.progressDivider !== 'number') throw new Error('downloadFile: Invalid value for property `progressDivider`');
     if (options.readTimeout && typeof options.readTimeout !== 'number') throw new Error('downloadFile: Invalid value for property `readTimeout`');
     if (options.connectionTimeout && typeof options.connectionTimeout !== 'number') throw new Error('downloadFile: Invalid value for property `connectionTimeout`');
+    if (options.throttleRate && typeof options.throttleRate !== 'number') throw new Error('downloadFile: Invalid value for property `throttleRate`');
 
     var jobId = getJobId();
     var subscriptions = [];
@@ -486,7 +488,8 @@ var RNFS = {
       background: !!options.background,
       progressDivider: options.progressDivider || 0,
       readTimeout: options.readTimeout || 15000,
-      connectionTimeout: options.connectionTimeout || 5000
+      connectionTimeout: options.connectionTimeout || 5000,
+      throttleRate: options.throttleRate || 0
     };
 
     return {
