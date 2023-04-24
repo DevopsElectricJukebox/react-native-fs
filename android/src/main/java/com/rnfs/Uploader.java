@@ -7,7 +7,6 @@ import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.NoSuchKeyException;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.ReadableMapKeySetIterator;
-import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 
 import java.io.BufferedInputStream;
@@ -17,9 +16,16 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+
+import android.util.Log;
 
 public class Uploader extends AsyncTask<UploadParams, int[], UploadResult> {
     private UploadParams mParams;
@@ -45,6 +51,12 @@ public class Uploader extends AsyncTask<UploadParams, int[], UploadResult> {
         return res;
     }
 
+    private void setTls(HttpsURLConnection connection, String spec) throws NoSuchAlgorithmException, KeyManagementException {
+        SSLContext sc = SSLContext.getInstance(spec);
+        sc.init(null, null, new java.security.SecureRandom());
+        connection.setSSLSocketFactory(sc.getSocketFactory());
+    }
+
     private void upload(UploadParams params, UploadResult result) throws Exception {
         HttpURLConnection connection = null;
         DataOutputStream request = null;
@@ -60,6 +72,16 @@ public class Uploader extends AsyncTask<UploadParams, int[], UploadResult> {
         Map<String, List<String>> responseHeader;
         try {
             connection = (HttpURLConnection) params.src.openConnection();
+
+            Log.d("Uploader", "Protocol: " + params.src.getProtocol());
+            HttpsURLConnection httpsConnection = (HttpsURLConnection)connection;
+            if (httpsConnection != null) {
+                // When calling AWS s3;
+                // with this call we get TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 (TLS1.2)
+                // otherwise we get      TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA    (TLS1.0, TLS1.1, TLS1.2)
+                setTls(httpsConnection, "TLSv1.2");
+            }
+
             connection.setUseCaches(false);
             connection.setDoOutput(true);
             connection.setDoInput(true);
@@ -73,6 +95,10 @@ public class Uploader extends AsyncTask<UploadParams, int[], UploadResult> {
             }
 
             request = new DataOutputStream(connection.getOutputStream());
+
+            if (httpsConnection != null) {
+                Log.d("Uploader", "HTTPS: " + httpsConnection.getCipherSuite());
+            }
 
             ReadableMapKeySetIterator fieldsIterator = params.fields.keySetIterator();
 
