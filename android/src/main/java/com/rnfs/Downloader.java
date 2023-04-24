@@ -1,15 +1,16 @@
 package com.rnfs;
 
-import java.io.File;
 import java.io.FileOutputStream;
-import java.io.FileInputStream;
 import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.IOException;
 import java.net.URL;
-import java.net.URLConnection;
 import java.net.HttpURLConnection;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -43,6 +44,12 @@ public class Downloader extends AsyncTask<DownloadParams, int[], DownloadResult>
     return res;
   }
 
+  private void setTls(HttpsURLConnection connection, String spec) throws NoSuchAlgorithmException, KeyManagementException {
+    SSLContext sc = SSLContext.getInstance(spec);
+    sc.init(null, null, new java.security.SecureRandom());
+    connection.setSSLSocketFactory(sc.getSocketFactory());
+  }
+
   private void download(DownloadParams param, DownloadResult res) throws Exception {
     InputStream input = null;
     OutputStream output = null;
@@ -50,6 +57,15 @@ public class Downloader extends AsyncTask<DownloadParams, int[], DownloadResult>
 
     try {
       connection = (HttpURLConnection)param.src.openConnection();
+
+      Log.d("Downloader", "Protocol: " + param.src.getProtocol());
+      HttpsURLConnection httpsConnection = (HttpsURLConnection)connection;
+      if (httpsConnection != null) {
+        // When calling AWS s3;
+        // with this call we get TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 (TLS1.2)
+        // otherwise we get      TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA    (TLS1.0, TLS1.1, TLS1.2)
+        setTls(httpsConnection, "TLSv1.2");
+      }
 
       ReadableMapKeySetIterator iterator = param.headers.keySetIterator();
 
@@ -62,6 +78,10 @@ public class Downloader extends AsyncTask<DownloadParams, int[], DownloadResult>
       connection.setConnectTimeout(param.connectionTimeout);
       connection.setReadTimeout(param.readTimeout);
       connection.connect();
+
+      if (httpsConnection != null) {
+        Log.d("Downloader", "HTTPS: " + httpsConnection.getCipherSuite());
+      }
 
       int statusCode = connection.getResponseCode();
       int lengthOfFile = connection.getContentLength();
@@ -80,7 +100,14 @@ public class Downloader extends AsyncTask<DownloadParams, int[], DownloadResult>
         String redirectURL = connection.getHeaderField("Location");
         connection.disconnect();
 
-        connection = (HttpURLConnection) new URL(redirectURL).openConnection();
+        URL redirect = new URL(redirectURL);
+        connection = (HttpURLConnection) redirect.openConnection();
+
+        httpsConnection = (HttpsURLConnection)connection;
+        if (httpsConnection != null) {
+          setTls(httpsConnection, "TLSv1.2");
+        }
+
         connection.setConnectTimeout(5000);
         connection.connect();
 
